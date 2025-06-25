@@ -325,6 +325,63 @@
             display: none;
         }
         
+        .lump-sum-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 15px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        
+        .lump-sum-inputs {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .lump-sum-inputs > div {
+            flex: 1;
+        }
+        
+        .add-lump-sum {
+            background: linear-gradient(to right, #9b59b6, #8e44ad);
+            color: white;
+            padding: 10px 15px;
+            align-self: flex-start;
+        }
+        
+        .lump-sum-list {
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        
+        .lump-sum-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        
+        .lump-sum-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .remove-lump-sum {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+        
         @media (max-width: 768px) {
             .tabs {
                 flex-direction: column;
@@ -340,6 +397,11 @@
             
             h1 {
                 font-size: 2rem;
+            }
+            
+            .lump-sum-inputs {
+                flex-direction: column;
+                gap: 10px;
             }
         }
     </style>
@@ -382,6 +444,27 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Lump Sum Payment Section -->
+                <div class="lump-sum-container">
+                    <h3><i class="fas fa-plus-circle"></i> Add Lump Sum Payments</h3>
+                    <div class="lump-sum-inputs">
+                        <div class="input-container">
+                            <label for="lump-sum-amount">Amount (<span class="currency-symbol">₹</span>)</label>
+                            <input type="number" id="lump-sum-amount" placeholder="Enter amount" min="0">
+                        </div>
+                        <div class="input-container">
+                            <label for="lump-sum-month">After Month</label>
+                            <input type="number" id="lump-sum-month" placeholder="Month number" min="1">
+                        </div>
+                    </div>
+                    <button class="add-lump-sum" onclick="addLumpSum()"><i class="fas fa-plus"></i> Add Payment</button>
+                    
+                    <div class="lump-sum-list" id="lump-sum-list">
+                        <!-- Lump sum payments will be added here -->
+                    </div>
+                </div>
+                
                 <div class="buttons">
                     <button class="reset-btn" onclick="resetForm('emi')"><i class="fas fa-redo"></i> Reset</button>
                     <button class="calculate-btn" onclick="calculateEMI()"><i class="fas fa-calculator"></i> Calculate</button>
@@ -410,7 +493,7 @@
                                 <span id="emi-summary-rate">0%</span>
                             </div>
                             <div class="summary-item">
-                                <span>Loan Period:</span>
+                                <span>Original Period:</span>
                                 <span id="emi-summary-period">0 years</span>
                             </div>
                             <div class="summary-item">
@@ -424,6 +507,14 @@
                             <div class="summary-item">
                                 <span>Total Payment:</span>
                                 <span id="emi-summary-total" class="indian-format">₹0.00</span>
+                            </div>
+                            <div class="summary-item">
+                                <span>Actual Period:</span>
+                                <span id="emi-summary-actual-period">0 years</span>
+                            </div>
+                            <div class="summary-item">
+                                <span>Interest Saved:</span>
+                                <span id="emi-summary-interest-saved" class="indian-format">₹0.00</span>
                             </div>
                         </div>
                     </div>
@@ -442,6 +533,7 @@
                                 <th>Month</th>
                                 <th>Principal (<span class="currency-symbol">₹</span>)</th>
                                 <th>Interest (<span class="currency-symbol">₹</span>)</th>
+                                <th>Lump Sum (<span class="currency-symbol">₹</span>)</th>
                                 <th>Balance (<span class="currency-symbol">₹</span>)</th>
                             </tr>
                         </thead>
@@ -738,6 +830,9 @@
     </div>
 
     <script>
+        // Lump sum payments array
+        let lumpSumPayments = [];
+        
         // Tab switching functionality
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -777,41 +872,128 @@
             }).format(amount);
         }
         
-        function generateAmortizationSchedule(loanAmount, interestRate, periodMonths, emi, calculator) {
+        function formatPeriod(months) {
+            const years = Math.floor(months / 12);
+            const remainingMonths = months % 12;
+            let str = '';
+            if (years > 0) str += `${years} years `;
+            if (remainingMonths > 0) str += `${remainingMonths} months`;
+            return str || '0 months';
+        }
+        
+        function addLumpSum() {
+            const amount = parseFloat(document.getElementById('lump-sum-amount').value);
+            const month = parseInt(document.getElementById('lump-sum-month').value);
+            
+            if (isNaN(amount) || amount <= 0) {
+                document.getElementById('emi-error').textContent = "Please enter a valid lump sum amount";
+                document.getElementById('emi-error').style.display = 'block';
+                return;
+            }
+            
+            if (isNaN(month) || month < 1) {
+                document.getElementById('emi-error').textContent = "Please enter a valid month number";
+                document.getElementById('emi-error').style.display = 'block';
+                return;
+            }
+            
+            // Add to lump sum payments array
+            lumpSumPayments.push({ amount, month });
+            
+            // Clear inputs
+            document.getElementById('lump-sum-amount').value = '';
+            document.getElementById('lump-sum-month').value = '';
+            document.getElementById('emi-error').style.display = 'none';
+            
+            // Update lump sum list
+            updateLumpSumList();
+        }
+        
+        function updateLumpSumList() {
+            const list = document.getElementById('lump-sum-list');
+            list.innerHTML = '';
+            
+            if (lumpSumPayments.length === 0) {
+                list.innerHTML = '<p>No lump sum payments added</p>';
+                return;
+            }
+            
+            lumpSumPayments.forEach((payment, index) => {
+                const item = document.createElement('div');
+                item.className = 'lump-sum-item';
+                item.innerHTML = `
+                    <span>${formatCurrency(payment.amount)} in month ${payment.month}</span>
+                    <button class="remove-lump-sum" onclick="removeLumpSum(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                list.appendChild(item);
+            });
+        }
+        
+        function removeLumpSum(index) {
+            lumpSumPayments.splice(index, 1);
+            updateLumpSumList();
+        }
+        
+        function generateAmortizationSchedule(loanAmount, interestRate, periodMonths, emi, calculator, lumpSumPayments = []) {
             const tableBody = document.querySelector(`#${calculator}-amortization tbody`);
             tableBody.innerHTML = '';
             
             let balance = loanAmount;
             let totalInterest = 0;
+            let actualMonths = periodMonths;
             
             for (let month = 1; month <= periodMonths; month++) {
                 const interestPayment = balance * (interestRate / 100 / 12);
-                const principalPayment = emi - interestPayment;
+                const principalPayment = Math.min(emi - interestPayment, balance);
                 totalInterest += interestPayment;
                 balance -= principalPayment;
                 
-                // Ensure balance doesn't go negative
-                if (balance < 0) {
-                    balance = 0;
-                    // Adjust the last EMI if needed
-                    if (Math.abs(balance) < 0.01) {
-                        break;
-                    }
+                let lumpSumPayment = 0;
+                
+                // Check if there are lump sum payments for this month
+                const lumpSums = lumpSumPayments.filter(p => p.month === month);
+                for (const ls of lumpSums) {
+                    if (balance <= 0) break;
+                    const amount = Math.min(ls.amount, balance);
+                    lumpSumPayment += amount;
+                    balance -= amount;
                 }
                 
+                // Ensure balance doesn't go negative
+                if (balance < 0) balance = 0;
+                
+                // Create table row
                 const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${month}</td>
-                    <td>${formatCurrencyWithDecimals(principalPayment)}</td>
-                    <td>${formatCurrencyWithDecimals(interestPayment)}</td>
-                    <td>${formatCurrencyWithDecimals(balance)}</td>
-                `;
+                
+                if (calculator === 'emi') {
+                    row.innerHTML = `
+                        <td>${month}</td>
+                        <td>${formatCurrencyWithDecimals(principalPayment)}</td>
+                        <td>${formatCurrencyWithDecimals(interestPayment)}</td>
+                        <td>${lumpSumPayment > 0 ? formatCurrencyWithDecimals(lumpSumPayment) : '-'}</td>
+                        <td>${formatCurrencyWithDecimals(balance)}</td>
+                    `;
+                } else {
+                    row.innerHTML = `
+                        <td>${month}</td>
+                        <td>${formatCurrencyWithDecimals(principalPayment)}</td>
+                        <td>${formatCurrencyWithDecimals(interestPayment)}</td>
+                        <td>${formatCurrencyWithDecimals(balance)}</td>
+                    `;
+                }
                 
                 tableBody.appendChild(row);
                 
                 // Break if balance is zero
-                if (balance <= 0) break;
+                if (balance <= 0) {
+                    actualMonths = month;
+                    break;
+                }
             }
+            
+            return { totalInterest, actualMonths };
         }
         
         function createChart(ctx, loanAmount, totalInterest) {
@@ -858,6 +1040,10 @@
                 document.getElementById('emi-loan-amount').value = '';
                 document.getElementById('emi-interest-rate').value = '';
                 document.getElementById('emi-period-value').value = '';
+                document.getElementById('lump-sum-amount').value = '';
+                document.getElementById('lump-sum-month').value = '';
+                lumpSumPayments = [];
+                updateLumpSumList();
                 document.getElementById('emi-error').style.display = 'none';
             } else if (calculator === 'loan') {
                 document.getElementById('loan-emi').value = '';
@@ -929,19 +1115,31 @@
             
             // Calculate EMI
             const monthlyRate = interestRate / 100 / 12;
-            const emi = loanAmount * monthlyRate * Math.pow(1 + monthlyRate, periodMonths) / 
+            let emi = loanAmount * monthlyRate * Math.pow(1 + monthlyRate, periodMonths) / 
                         (Math.pow(1 + monthlyRate, periodMonths) - 1);
             
-            const totalPayment = emi * periodMonths;
-            const totalInterest = totalPayment - loanAmount;
+            // Calculate without lump sum payments for comparison
+            let totalPaymentWithoutLump = emi * periodMonths;
+            let totalInterestWithoutLump = totalPaymentWithoutLump - loanAmount;
+            
+            // Generate amortization schedule with lump sum payments
+            const { totalInterest, actualMonths } = generateAmortizationSchedule(
+                loanAmount, interestRate, periodMonths, emi, 'emi', lumpSumPayments
+            );
+            
+            const totalPayment = (emi * actualMonths) + 
+                lumpSumPayments.reduce((sum, payment) => sum + payment.amount, 0);
+            const interestSaved = totalInterestWithoutLump - totalInterest;
             
             // Update results
             document.getElementById('emi-summary-amount').textContent = formatCurrency(loanAmount);
             document.getElementById('emi-summary-rate').textContent = `${interestRate.toFixed(2)}%`;
-            document.getElementById('emi-summary-period').textContent = `${periodValue} ${periodUnit}`;
+            document.getElementById('emi-summary-period').textContent = formatPeriod(periodMonths);
             document.getElementById('emi-summary-emi').textContent = formatCurrency(emi);
             document.getElementById('emi-summary-interest').textContent = formatCurrency(totalInterest);
             document.getElementById('emi-summary-total').textContent = formatCurrency(totalPayment);
+            document.getElementById('emi-summary-actual-period').textContent = formatPeriod(actualMonths);
+            document.getElementById('emi-summary-interest-saved').textContent = formatCurrency(interestSaved);
             
             // Show results
             document.getElementById('emi-results').style.display = 'block';
@@ -950,9 +1148,6 @@
             const ctx = document.getElementById('emi-chart').getContext('2d');
             if (emiChart) emiChart.destroy();
             emiChart = createChart(ctx, loanAmount, totalInterest);
-            
-            // Generate amortization schedule
-            generateAmortizationSchedule(loanAmount, interestRate, periodMonths, emi, 'emi');
         }
         
         // Loan Amount Calculator
@@ -979,13 +1174,17 @@
             const loanAmount = emi * (Math.pow(1 + monthlyRate, periodMonths) - 1) / 
                               (monthlyRate * Math.pow(1 + monthlyRate, periodMonths));
             
+            // Generate amortization schedule
+            const { totalInterest } = generateAmortizationSchedule(
+                loanAmount, interestRate, periodMonths, emi, 'loan'
+            );
+            
             const totalPayment = emi * periodMonths;
-            const totalInterest = totalPayment - loanAmount;
             
             // Update results
             document.getElementById('loan-summary-amount').textContent = formatCurrency(loanAmount);
             document.getElementById('loan-summary-rate').textContent = `${interestRate.toFixed(2)}%`;
-            document.getElementById('loan-summary-period').textContent = `${periodValue} ${periodUnit}`;
+            document.getElementById('loan-summary-period').textContent = formatPeriod(periodMonths);
             document.getElementById('loan-summary-emi').textContent = formatCurrency(emi);
             document.getElementById('loan-summary-interest').textContent = formatCurrency(totalInterest);
             document.getElementById('loan-summary-total').textContent = formatCurrency(totalPayment);
@@ -997,9 +1196,6 @@
             const ctx = document.getElementById('loan-chart').getContext('2d');
             if (loanChart) loanChart.destroy();
             loanChart = createChart(ctx, loanAmount, totalInterest);
-            
-            // Generate amortization schedule
-            generateAmortizationSchedule(loanAmount, interestRate, periodMonths, emi, 'loan');
         }
         
         // Interest Rate Calculator (using approximation)
@@ -1050,13 +1246,18 @@
             }
             
             const interestRate = parseFloat(rate.toFixed(4));
+            
+            // Generate amortization schedule
+            const { totalInterest } = generateAmortizationSchedule(
+                loanAmount, interestRate, periodMonths, emi, 'interest'
+            );
+            
             const totalPayment = emi * periodMonths;
-            const totalInterest = totalPayment - loanAmount;
             
             // Update results
             document.getElementById('interest-summary-amount').textContent = formatCurrency(loanAmount);
             document.getElementById('interest-summary-rate').textContent = `${interestRate.toFixed(4)}%`;
-            document.getElementById('interest-summary-period').textContent = `${periodValue} ${periodUnit}`;
+            document.getElementById('interest-summary-period').textContent = formatPeriod(periodMonths);
             document.getElementById('interest-summary-emi').textContent = formatCurrency(emi);
             document.getElementById('interest-summary-interest').textContent = formatCurrency(totalInterest);
             document.getElementById('interest-summary-total').textContent = formatCurrency(totalPayment);
@@ -1068,9 +1269,6 @@
             const ctx = document.getElementById('interest-chart').getContext('2d');
             if (interestChart) interestChart.destroy();
             interestChart = createChart(ctx, loanAmount, totalInterest);
-            
-            // Generate amortization schedule
-            generateAmortizationSchedule(loanAmount, interestRate, periodMonths, emi, 'interest');
         }
         
         // Loan Period Calculator
@@ -1093,17 +1291,13 @@
             let n = Math.log(emi / (emi - loanAmount * monthlyRate)) / Math.log(1 + monthlyRate);
             let periodMonths = Math.ceil(n);
             
-            // Calculate total payment and interest
+            // Generate amortization schedule
+            const { totalInterest } = generateAmortizationSchedule(
+                loanAmount, interestRate, periodMonths, emi, 'period'
+            );
+            
             const totalPayment = emi * periodMonths;
-            const totalInterest = totalPayment - loanAmount;
-            
-            // Convert to years and months
-            const years = Math.floor(periodMonths / 12);
-            const months = periodMonths % 12;
-            
-            let periodDisplay = '';
-            if (years > 0) periodDisplay += `${years} years `;
-            if (months > 0) periodDisplay += `${months} months`;
+            const periodDisplay = formatPeriod(periodMonths);
             
             // Update results
             document.getElementById('period-summary-amount').textContent = formatCurrency(loanAmount);
@@ -1120,9 +1314,6 @@
             const ctx = document.getElementById('period-chart').getContext('2d');
             if (periodChart) periodChart.destroy();
             periodChart = createChart(ctx, loanAmount, totalInterest);
-            
-            // Generate amortization schedule
-            generateAmortizationSchedule(loanAmount, interestRate, periodMonths, emi, 'period');
         }
         
         // Initialize the page with blank inputs
@@ -1132,6 +1323,7 @@
             resetForm('loan');
             resetForm('interest');
             resetForm('period');
+            updateLumpSumList();
         };
     </script>
 </body>
